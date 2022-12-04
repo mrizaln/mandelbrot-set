@@ -4,6 +4,7 @@
 #include <sstream>
 
 #include "mandelbrot_set.h"
+#include "render.h"
 
 
 int getRandomNumber(int min, int max)
@@ -32,7 +33,7 @@ int main(int argc, char** argv)
         ss >> height;
     }
 
-    int iteration( 10 );
+    int iteration( 5 );
     if (argc > 2)
     {
         std::stringstream ss{ argv[2] };
@@ -41,24 +42,23 @@ int main(int argc, char** argv)
 
     MandelbrotSet set{ width, height };
 
-    auto mandelbrotSet{ set.generateMandelbrotSet(iteration) };
-    for (auto row{ mandelbrotSet.rbegin() }; row != mandelbrotSet.rend(); ++row)
-    {
-        for (const auto& cell: *row)
-        {
-            switch (cell)
-            {
-            case 0: std::cout << "  "; break;
-            case 1: std::cout << "##"; break;
-            }
-        }
-        std::cout << '\n';
-    }
+    // auto mandelbrotSet{ set.generateMandelbrotSet(iteration) };
+    // for (auto row{ mandelbrotSet.rbegin() }; row != mandelbrotSet.rend(); ++row)
+    // {
+    //     for (const auto& cell: *row)
+    //     {
+    //         switch (cell)
+    //         {
+    //         case 0: std::cout << "  "; break;
+    //         case 1: std::cout << "##"; break;
+    //         }
+    //     }
+    //     std::cout << '\n';
+    // }
             
-
-    // set.apply([&](std::complex<double>& cell)->void{
-    //     cell = { getRandomNormal(), getRandomNormal() };
-    // });
-
-    // std::cout << set;
+    RenderEngine::initialize(set, width, height, iteration);
+    while (!RenderEngine::shouldClose())
+    {
+        RenderEngine::render();
+    }
 }
