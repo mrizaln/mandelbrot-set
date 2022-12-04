@@ -54,22 +54,27 @@ public:
         return m_mat[idx];
     }
 
+    const Element_type& operator()(std::size_t col, std::size_t row) const
+    {
+        if (col < 0 || row < 0 || col >= m_width || row >= m_height)
+            throw std::range_error{ "out of bound" };
+
+        std::size_t idx{ row * m_width + col };
+        return m_mat[idx];
+    }
+
     const auto& data() const { return m_mat; }
     auto& base() { return m_mat; }
 
     friend std::ostream& operator<<(std::ostream& out, const UnrolledMatrix& grid)
     {
-        for (int y{ grid.m_height-1 }; y >= 0; --y)
+        for (int y{ 0 }; y < grid.m_height; ++y)
         {
             for (int x{ 0 }; x < grid.m_width; ++x)
             {
-                switch (grid(x, y))
-                {
-                case true: std::cout << "##"; break;
-                case false: std::cout << "  "; break;
-                default:                      break;
-                }
+                std::cout << grid(x, y) << ' ';
             }
+            std::cout << '\n';
         }
         return out;
     }
