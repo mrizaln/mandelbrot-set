@@ -7,15 +7,16 @@
 
 #include "./unrolled_matrix.h"
 
+// any T that can apply to std::complex<T>
+template <typename T=double>
 class MandelbrotSet
 {
 public:
-    using Cell_type = std::complex<double>;
+    using Cell_type = std::complex<T>;
     using Grid_type = UnrolledMatrix<Cell_type>;
 
 private:
     Grid_type m_grid{};
-    Grid_type m_linearSet{};
 
     std::size_t m_width{};
     std::size_t m_height{};
@@ -34,13 +35,12 @@ public:
         : m_width{ width }
         , m_height{ height }
         , m_grid{ width, height }
-        , m_linearSet{ width, height }
     {
     }
 
     void generateLinearSet()
     {
-        m_linearSet = { m_width, m_height };
+        m_grid = { m_width, m_height };
 
         // from -2 to 2 (of y component)
         const double yDelta{ (4/static_cast<double>(m_height))/m_magnification };
@@ -57,70 +57,48 @@ public:
                     m_xCenter - (2.0*aspectRatio)/m_magnification,
                     m_yCenter - 2.0/m_magnification
                 };
-                m_linearSet(x, y) = { static_cast<double>(x)*xDelta + xDelta/2.0, static_cast<double>(y)*yDelta + yDelta/2.0 };
-                m_linearSet(x, y) += offset;
+                m_grid(x, y) = { static_cast<double>(x)*xDelta + xDelta/2.0, static_cast<double>(y)*yDelta + yDelta/2.0 };
+                m_grid(x, y) += offset;
             }
         }
 
         // std::cout << m_linearSet;
     }
 
-    std::vector<std::vector<bool>> generateMandelbrotSet(std::size_t iteration)
+    UnrolledMatrix<std::pair<double, int>> generateMandelbrotSet(std::size_t iteration, double radius=1000.0)
     {
         generateLinearSet();
-        m_grid = { m_width, m_height };
 
-        m_grid.apply(m_linearSet, [&](Cell_type& cell, Cell_type& other)->Cell_type{
-            Cell_type temp { cell };
-            for (int i{ 0 }; i < iteration; ++i)
-                temp = temp*temp + other;
-            return temp;
-        });
+        auto magnitude_squared{ [&](const Cell_type& c){
+            return c.real() * c.real() + c.imag() * c.imag();
+        } };
 
-        std::vector<std::vector<bool>> mandelbrotSet{ std::vector<std::vector<bool>>(m_height, std::vector<bool>(m_width)) };
-        for (std::size_t y{ 0 }; y < m_height; ++y)
-            for (std::size_t x{ 0 }; x < m_width; ++x)
-                mandelbrotSet[y][x] = isMandelbrotSet(x, y);
-
-        return mandelbrotSet;
-    }
-
-    std::vector<bool> generateMandelbrotSet_unrolled(std::size_t iteration)
-    {
-        generateLinearSet();
-        m_grid = { m_width, m_height };
-
-        m_grid.apply(m_linearSet, [&](Cell_type& cell, Cell_type& other)->Cell_type{
-            Cell_type temp { cell };
-            for (int i{ 0 }; i < iteration; ++i)
-                temp = temp*temp + other;
-            return temp;
-        });
-
-        std::vector<bool> mandelbrotSet(m_width*m_height);
-        for (std::size_t y{ 0 }; y < m_height; ++y)
-        {
-            for (std::size_t x{ 0 }; x < m_width; ++x)
+        auto escapeCount{ [&](std::pair<double, int>, const Cell_type& other)->std::pair<double, int> {
+            Cell_type temp{ 0 };
+            int i{ 0 };
+            double squareModulus{ magnitude_squared(temp) };
+            for (; i < iteration; ++i)
             {
-                std::size_t idx{ y * m_width + x };
-                mandelbrotSet[idx] = isMandelbrotSet(x, y);
+                const double boundary{ radius*radius };
+                if ((squareModulus = magnitude_squared(temp)) > boundary)
+                    return { squareModulus, i };
+                temp = temp*temp + other;
             }
-        }
+            return { squareModulus, i };
+        } };
+
+        UnrolledMatrix<std::pair<double, int>> mandelbrotSet{ m_width, m_height };
+        
+        std::transform(
+            std::execution::par_unseq,
+            mandelbrotSet.base().begin(),       // in_1 begin
+            mandelbrotSet.base().end(),         // in_1 end
+            m_grid.base().begin(),              // in_2 begin
+            mandelbrotSet.base().begin(),       // out  begin
+            escapeCount
+        );
 
         return mandelbrotSet;
-    }
-
-    bool isMandelbrotSet(std::size_t x, std::size_t y)
-    {
-        const auto& real{ m_grid(x, y).real() };
-        const auto& imag{ m_grid(x, y).imag() };
-        double magnitude_squared{ real*real + imag*imag };
-
-        constexpr double boundary_squared{ 4.0 };
-
-        // std::cout << m_grid[y][x] << '\t' << magnitude << '\t' << (magnitude <= boundary && magnitude > 0) << '\n';
-
-        return magnitude_squared <= boundary_squared;
     }
 
     const std::size_t getWidth() const { return m_width; }
@@ -129,6 +107,7 @@ public:
     const double getXCenter() const { return m_xCenter; }
     const double getYCenter() const { return m_yCenter; }
     const double getMagnification() const { return m_magnification; }
+    const auto& getGrid() const { return m_grid; }
 
     void modifyDimension(const std::size_t width, const std::size_t height)
     {
@@ -156,7 +135,6 @@ public:
     void updateGrids()
     {
         m_grid = { m_width, m_height };
-        m_linearSet = { m_width, m_height };
     }
 };
 
