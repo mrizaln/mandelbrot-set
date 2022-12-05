@@ -22,8 +22,8 @@ double getRandomNormal()
 
 int main(int argc, char** argv)
 {
-    int width{ 40 };
-    int height{ 40 };
+    std::size_t width{ 40 };
+    std::size_t height{ 40 };
     if (argc > 1)
     {
         char tmp{};
@@ -33,30 +33,24 @@ int main(int argc, char** argv)
         ss >> height;
     }
 
-    int iteration( 5 );
+    int iteration{ 5 };
     if (argc > 2)
     {
         std::stringstream ss{ argv[2] };
         ss >> iteration;
     }
 
-    MandelbrotSet set{ width, height };
+    double radius{ 100.0 };
+    if (argc > 3)
+    {
+        std::stringstream ss{ argv[3] };
+        ss >> radius;
+    }
 
-    // auto mandelbrotSet{ set.generateMandelbrotSet(iteration) };
-    // for (auto row{ mandelbrotSet.rbegin() }; row != mandelbrotSet.rend(); ++row)
-    // {
-    //     for (const auto& cell: *row)
-    //     {
-    //         switch (cell)
-    //         {
-    //         case 0: std::cout << "  "; break;
-    //         case 1: std::cout << "##"; break;
-    //         }
-    //     }
-    //     std::cout << '\n';
-    // }
+    MandelbrotSet<long double> set{ width, height };
+    set.modifyCenter(-0.75, 0);
             
-    RenderEngine::initialize(set, width, height, iteration);
+    RenderEngine::initialize(set, width, height, iteration, radius);
     while (!RenderEngine::shouldClose())
     {
         RenderEngine::render();
