@@ -2,8 +2,8 @@
 Mandelbrot Set
 
 
-<b>Preview (speed up 2x):</b>
+<b>Preview:</b>
 
 
-https://user-images.githubusercontent.com/61090869/205499445-4265a7ae-e928-4991-8306-51c33f0d1003.mp4
+https://user-images.githubusercontent.com/61090869/205637838-5a4a24b1-9a3a-4329-a8f1-49b34d49a5ad.mp4
 
