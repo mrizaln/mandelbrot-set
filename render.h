@@ -5,6 +5,8 @@
 
 #include <algorithm>        // for std::min
 #include <iostream>
+#include <vector>
+#include <array>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -16,7 +18,7 @@
 
 namespace RenderEngine
 {
-    GLFWwindow* initializeWindow();
+    GLFWwindow* initializeWindow(const std::string&);
 
     void framebuffer_size_callback(GLFWwindow*, int, int);
     void cursor_position_callback(GLFWwindow*, double, double);
@@ -31,6 +33,11 @@ namespace RenderEngine
 
 
 //=================================================================================================
+
+    // aliases
+    using Data_type = MandelbrotSet<long double>;
+    using Pixel_type = std::array<unsigned char, 4>;
+    using TextureData_type = UnrolledMatrix<Pixel_type>;
 
     namespace configuration
     {
@@ -68,12 +75,11 @@ namespace RenderEngine
     {
         bool pause{ false };
         int iteration{ 5 };
+        double radius{ 100.0 };
     }
 
     namespace data
     {
-        using Data_type = MandelbrotSet;
-
         Data_type* dataPtr{};
         GLFWwindow* window{};
         Tile* tile{};
@@ -82,12 +88,12 @@ namespace RenderEngine
 
 //=================================================================================================
 
-    int initialize(data::Data_type& data, int width=800, int height=600, int iteration=5)
+    int initialize(Data_type& data, int width=800, int height=600, int iteration=5, double radius=100.0)
     {
         configuration::width = width;
         configuration::height = height;
 
-        data::window = initializeWindow();
+        data::window = initializeWindow("Mandelbrot Set");
         if (!data::window)
         {
             std::cout << "There's an error when creating window.\n";
@@ -100,10 +106,11 @@ namespace RenderEngine
         data::tile = new Tile{
             2.0f,
             "./shaders/shader.vs", "./shaders/shader.fs",   // Shader
-            { 0x0, 0x0, 0x0 }                               // Texture
+            { '\00', '\00', '\00' }                               // Texture
         };
 
         simulation::iteration = iteration;
+        simulation::radius = radius;
 
         view::speed = 1.0f;
 
@@ -140,7 +147,7 @@ namespace RenderEngine
 
 //=================================================================================================
 
-    GLFWwindow* initializeWindow()
+    GLFWwindow* initializeWindow(const std::string& windowName)
     {
         // initialize glfw
         glfwInit();
@@ -149,7 +156,7 @@ namespace RenderEngine
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
         // window creation
-        GLFWwindow* window{ glfwCreateWindow(configuration::width, configuration::height, "Traffic Model", NULL, NULL) };
+        GLFWwindow* window{ glfwCreateWindow(configuration::width, configuration::height, windowName.c_str(), NULL, NULL) };
         if (!window)
         {
             std::cerr << "Failed to create GLFW window\n";
@@ -272,7 +279,7 @@ namespace RenderEngine
     }
 
     void resetCamera(bool resetZoom)
-    {        
+    {
         // center view
         view::position = { 0.0f, 0.0f };
 
@@ -281,32 +288,40 @@ namespace RenderEngine
     }
 
     // rgba texture (4 channels)
-    unsigned char* newTexture()
+    TextureData_type newTexture(int iteration, double radius=100.0)
     {
-        constexpr int numOfChannels{ 4 };
-        auto mandelbrotSet{ data::dataPtr->generateMandelbrotSet_unrolled(simulation::iteration * std::log(1+view::zoom)) };
+        auto mandelbrotSet{ data::dataPtr->generateMandelbrotSet(iteration, radius) };
+        const auto& [width, height]{ data::dataPtr->getDimension() };
 
-        unsigned char* imageData = new unsigned char[configuration::width*configuration::height*numOfChannels];
-        for (std::size_t i{ 0 }; i < configuration::width*configuration::height; ++i)
-        {
-            bool cell{ mandelbrotSet[i] };
-            switch (cell)
-            {
-            case true:
-                imageData[numOfChannels*i+0] = 0x19;
-                imageData[numOfChannels*i+1] = 0x19;
-                imageData[numOfChannels*i+2] = 0x1c;
-                imageData[numOfChannels*i+3] = 0xff;      // alpha
-                break;
+        // generate rgba color
+        const auto& colorize{ [&](const Pixel_type& pixel, const std::pair<double, int>& pair) -> Pixel_type {
+            const auto& [value, iter]{ pair };
 
-            case false:
-                imageData[numOfChannels*i+0] = 0xe3;
-                imageData[numOfChannels*i+1] = 0xe3;
-                imageData[numOfChannels*i+2] = 0xe6;
-                imageData[numOfChannels*i+3] = 0xff;      // alpha
-                break;
-            }
-        }
+            // generate number [0x00, 0xff]
+            const auto getColor{ [&](double value, int iter, double mul) -> unsigned char {
+                auto& R{ value };
+                auto V{ std::max(0.0, std::log(R)/std::pow(2, iter)) };      // [0,idk)
+                auto x{ std::log(V)/std::log(2) };
+
+                constexpr double offset{ 0.2 };
+                const auto color{ static_cast<unsigned char>(
+                    0xff * ( 1+(offset)/2 - (1-offset) * std::cos(mul*x) )/2
+                ) };
+
+                return (iter != iteration ? color : 0x00);
+            } };
+
+            unsigned char r{ getColor(value, iter, 1) };
+            unsigned char g{ getColor(value, iter, 1/(3.0*std::sqrt(2.0))) };
+            unsigned char b{ getColor(value, iter, 1/(7.0*std::pow(3.0, 0.25))) };
+            unsigned char a{ 0xff };
+
+            return { r, g, b, a };
+        } };
+
+        TextureData_type imageData{ width, height };
+        imageData.apply<std::pair<double, int>>(mandelbrotSet, colorize);
+
         return imageData;
     }
 
@@ -318,17 +333,20 @@ namespace RenderEngine
 
         // generate new texture based on mandelbrot set
         constexpr int numOfChannels{ 4 };
-        auto imageData = newTexture();      // 4 channels
-        data::tile->m_texture.updateTexture(imageData, configuration::width, configuration::height, numOfChannels);
-        delete[] imageData;
-        imageData = nullptr;
+        auto imageData = newTexture(simulation::iteration*std::log(1+view::zoom), simulation::radius*std::sqrt(1+view::zoom));
+        auto* imageDataPtr{ &imageData.base().front().front() };
+        data::tile->m_texture.updateTexture(imageDataPtr, data::dataPtr->getWidth(), data::dataPtr->getHeight(), sizeof(Pixel_type));
 
-        std::cout << "It : " << simulation::iteration * std::log(std::sqrt(1+view::zoom)) << '\n';
+        // output something
+        std::cout << "It : " << simulation::iteration*std::log(1+view::zoom) << '\n';
+        std::cout << "Rad: " << simulation::radius*std::sqrt(1+view::zoom) << '\n';
         std::cout << "Mag: " << data::dataPtr->getMagnification() <<'\n';
         std::cout << "Loc: " << data::dataPtr->getXCenter() << '/' << data::dataPtr->getYCenter() << '\n';
         std::cout << "Dim: " << data::dataPtr->getWidth() << '/' << data::dataPtr->getHeight() << '\n';
         std::cout << "Vp : " << configuration::width << '/' << configuration::height << '\n';
-        std::cout << '\n';
+
+        std::cout << "\033[6A";     // move cursor up 5 lines
+        std::cout << "\033[0J";     // clear from cursor to end of screen
     }
 
     // for continuous input
