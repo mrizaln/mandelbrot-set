@@ -40,9 +40,10 @@ public:
         std::transform(std::execution::par_unseq, m_mat.begin(), m_mat.end(), m_mat.begin(), func);
     }
 
-    void apply(UnrolledMatrix& grid_other, std::function<Element_type(Element_type&, Element_type&)> func)
+    template <typename T_other>
+    void apply(UnrolledMatrix<T_other>& mat_other, std::function<Element_type(Element_type&, T_other&)> func)
     {
-        std::transform(std::execution::par_unseq, m_mat.begin(), m_mat.end(), grid_other.base().begin(), m_mat.begin(), func);
+        std::transform(std::execution::par_unseq, m_mat.begin(), m_mat.end(), mat_other.base().begin(), m_mat.begin(), func);
     }
 
     Element_type& operator()(std::size_t col, std::size_t row)
