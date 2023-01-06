@@ -7,6 +7,7 @@
 #include <iostream>
 #include <vector>
 #include <array>
+#include <cstddef>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -35,7 +36,8 @@ namespace RenderEngine
 //=================================================================================================
 
     // aliases
-    using Data_type = MandelbrotSet<long double>;
+    using Value_type = double;
+    using Data_type = MandelbrotSet<Value_type>;
     using Pixel_type = std::array<unsigned char, 4>;
     using TextureData_type = UnrolledMatrix<Pixel_type>;
 
@@ -48,9 +50,9 @@ namespace RenderEngine
 
     namespace timing
     {
-        float lastFrame{};
-        float deltaTime{};
-        float sumTime{};
+        double lastFrame{};
+        double deltaTime{};
+        double sumTime{};
     }
 
     namespace mouse
@@ -66,16 +68,16 @@ namespace RenderEngine
 
     namespace view
     {
-        struct Point2D { double x{}; double y{}; } position{};
-        double speed{};
-        double zoom{};
+        struct Point2D { Value_type x{}; Value_type y{}; } position{};
+        Value_type speed{};
+        Value_type zoom{};
     }
 
     namespace simulation
     {
         bool pause{ false };
         int iteration{ 5 };
-        double radius{ 100.0 };
+        Value_type radius{ 100.0 };
     }
 
     namespace data
@@ -88,7 +90,7 @@ namespace RenderEngine
 
 //=================================================================================================
 
-    int initialize(Data_type& data, int width=800, int height=600, int iteration=5, double radius=100.0)
+    int initialize(Data_type& data, int width=800, int height=600, int iteration=5, Value_type radius=100.0)
     {
         configuration::width = width;
         configuration::height = height;
@@ -105,16 +107,17 @@ namespace RenderEngine
 
         data::tile = new Tile{
             2.0f,
-            "./shaders/shader.vs", "./shaders/shader.fs",   // Shader
+            "./resources/shaders/shader.vs", "./resources/shaders/shader.fs",   // Shader
             { '\00', '\00', '\00' }                               // Texture
         };
 
         simulation::iteration = iteration;
         simulation::radius = radius;
 
-        view::speed = 1.0f;
-
-        resetCamera(true);
+        view::zoom = 1.0;
+        view::speed = 1.0;
+        view::position.x = data.getXCenter();
+        view::position.y = data.getYCenter();
 
         return 0;
     }
@@ -208,8 +211,8 @@ namespace RenderEngine
             mouse::firstMouse = false;
         }
 
-        float xOffset { static_cast<float>(xPos) - mouse::lastX };
-        float yOffset { mouse::lastY - static_cast<float>(yPos) };
+        double xOffset { static_cast<float>(xPos) - mouse::lastX };
+        double yOffset { mouse::lastY - static_cast<float>(yPos) };
 
         view::position.x += xOffset * view::speed / (200.0f*view::zoom);
         view::position.y += yOffset * view::speed / (200.0f*view::zoom);
@@ -288,27 +291,30 @@ namespace RenderEngine
     }
 
     // rgba texture (4 channels)
-    TextureData_type newTexture(int iteration, double radius=100.0)
+    TextureData_type newTexture(int iteration, Value_type radius=100.0)
     {
         auto mandelbrotSet{ data::dataPtr->generateMandelbrotSet(iteration, radius) };
         const auto& [width, height]{ data::dataPtr->getDimension() };
 
         // generate rgba color
-        const auto& colorize{ [&](const Pixel_type& pixel, const std::pair<double, int>& pair) -> Pixel_type {
+        const auto& colorize{ [&](const Pixel_type& pixel, const std::pair<Value_type, int>& pair) -> Pixel_type {
             const auto& [value, iter]{ pair };
 
             // generate number [0x00, 0xff]
-            const auto getColor{ [&](double value, int iter, double mul) -> unsigned char {
+            const auto getColor{ [&](Value_type value, int iter, Value_type mul) -> unsigned char {
+                if (iter == iteration)
+                    return 0x00;
+                
                 auto& R{ value };
-                auto V{ std::max(0.0, std::log(R)/std::pow(2, iter)) };      // [0,idk)
+                auto V{ std::max(0.0, 2*std::log(R)/std::pow(2, iter)) };      // [0,idk)
                 auto x{ std::log(V)/std::log(2) };
+                // auto x{ iter };
 
-                constexpr double offset{ 0.2 };
+                constexpr Value_type offset{ 0.2 };
                 const auto color{ static_cast<unsigned char>(
                     0xff * ( 1+(offset)/2 - (1-offset) * std::cos(mul*x) )/2
                 ) };
-
-                return (iter != iteration ? color : 0x00);
+                return color;
             } };
 
             unsigned char r{ getColor(value, iter, 1) };
@@ -320,7 +326,7 @@ namespace RenderEngine
         } };
 
         TextureData_type imageData{ width, height };
-        imageData.apply<std::pair<double, int>>(mandelbrotSet, colorize);
+        imageData.apply<std::pair<Value_type, int>>(mandelbrotSet, colorize);
 
         return imageData;
     }
@@ -333,19 +339,20 @@ namespace RenderEngine
 
         // generate new texture based on mandelbrot set
         constexpr int numOfChannels{ 4 };
-        auto imageData = newTexture(simulation::iteration*std::log(1+view::zoom), simulation::radius*std::sqrt(1+view::zoom));
+        // auto imageData = newTexture(simulation::iteration*std::log(1+view::zoom), simulation::radius*std::sqrt(1+view::zoom));
+        auto imageData = newTexture(simulation::iteration*std::sqrt(std::log(1+view::zoom)), simulation::radius);
         auto* imageDataPtr{ &imageData.base().front().front() };
         data::tile->m_texture.updateTexture(imageDataPtr, data::dataPtr->getWidth(), data::dataPtr->getHeight(), sizeof(Pixel_type));
 
         // output something
-        std::cout << "It : " << simulation::iteration*std::log(1+view::zoom) << '\n';
-        std::cout << "Rad: " << simulation::radius*std::sqrt(1+view::zoom) << '\n';
+        std::cout << "It : " << simulation::iteration*std::sqrt(std::log(1+view::zoom)) << '\n';
+        std::cout << "Rad: " << simulation::radius << '\n';
         std::cout << "Mag: " << data::dataPtr->getMagnification() <<'\n';
         std::cout << "Loc: " << data::dataPtr->getXCenter() << '/' << data::dataPtr->getYCenter() << '\n';
         std::cout << "Dim: " << data::dataPtr->getWidth() << '/' << data::dataPtr->getHeight() << '\n';
-        std::cout << "Vp : " << configuration::width << '/' << configuration::height << '\n';
+        std::cout << "d  : " << data::dataPtr->getXDelta() << '/' << data::dataPtr->getYDelta() << '\n';
 
-        std::cout << "\033[6A";     // move cursor up 5 lines
+        std::cout << "\033[6A";     // move cursor up 6 lines
         std::cout << "\033[0J";     // clear from cursor to end of screen
     }
 
@@ -391,3 +398,4 @@ namespace RenderEngine
 
 
 #endif
+
