@@ -22,10 +22,16 @@ double getRandomNormal()
 
 int main(int argc, char** argv)
 {
-    std::size_t width{ 40 };
-    std::size_t height{ 40 };
+    std::size_t width{ 400 };
+    std::size_t height{ 400 };
     if (argc > 1)
     {
+        if (std::string{ argv[1] } == "-h")
+        {
+            std::cout << "Usage: " << argv[0] << " <width, height> <iteration> <radius>\n";
+            return 0;
+        }
+
         char tmp{};
         std::stringstream ss{ argv[1] };
         ss >> width;
@@ -33,7 +39,7 @@ int main(int argc, char** argv)
         ss >> height;
     }
 
-    int iteration{ 5 };
+    int iteration{ 20 };
     if (argc > 2)
     {
         std::stringstream ss{ argv[2] };
@@ -47,7 +53,7 @@ int main(int argc, char** argv)
         ss >> radius;
     }
 
-    MandelbrotSet<long double> set{ width, height };
+    MandelbrotSet<double> set{ width, height };
     set.modifyCenter(-0.75, 0);
             
     RenderEngine::initialize(set, width, height, iteration, radius);
