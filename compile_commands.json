@@ -1,0 +1,12 @@
+[
+{
+  "directory": "/home/mrizaln/Projects/C++/Mandelbrot Set/build/linux-debug",
+  "command": "/usr/lib64/ccache/c++  -I\"/home/mrizaln/Projects/C++/Mandelbrot Set/include\" -I\"/home/mrizaln/Projects/C++/Mandelbrot Set/include/glad/include/glad\" -g -std=gnu++20 -o CMakeFiles/main.dir/main.cpp.o -c \"/home/mrizaln/Projects/C++/Mandelbrot Set/main.cpp\"",
+  "file": "/home/mrizaln/Projects/C++/Mandelbrot Set/main.cpp"
+},
+{
+  "directory": "/home/mrizaln/Projects/C++/Mandelbrot Set/build/linux-debug/include/glad",
+  "command": "/usr/lib64/ccache/cc  -I\"/home/mrizaln/Projects/C++/Mandelbrot Set/include/glad/include/glad\" -g -o CMakeFiles/glad.dir/glad.c.o -c \"/home/mrizaln/Projects/C++/Mandelbrot Set/include/glad/glad.c\"",
+  "file": "/home/mrizaln/Projects/C++/Mandelbrot Set/include/glad/glad.c"
+}
+]
