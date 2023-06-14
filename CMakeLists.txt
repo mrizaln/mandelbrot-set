@@ -16,6 +16,8 @@ target_include_directories(main PUBLIC include)
 target_link_libraries(main PUBLIC glfw)
 target_link_libraries(main PUBLIC glad)
 
+add_compile_options(-ffast-math)
+
 # copy resources to build directory
 add_custom_command(TARGET main POST_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy_directory

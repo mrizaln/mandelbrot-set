@@ -8,6 +8,8 @@
 #include <iostream>
 #include <limits>
 
+#include "util/timer.hpp"
+
 
 class Texture
 {
@@ -107,6 +109,7 @@ public:
 
     void updateTexture(unsigned char* data, int width, int height, int numChannels=3)
     {
+        util::Timer timer{ "updateTexture" };
         glBindTexture(GL_TEXTURE_2D, textureID);
 
         int format{ GL_RGB };
