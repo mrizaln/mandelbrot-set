@@ -5,5 +5,5 @@ Mandelbrot Set
 <b>Preview:</b>
 
 
-https://user-images.githubusercontent.com/61090869/205637838-5a4a24b1-9a3a-4329-a8f1-49b34d49a5ad.mp4
+https://github.com/mrizaln/mandelbrot-set/assets/61090869/d04c61dc-ad9b-4354-8c0d-3fd1494ac991
 
